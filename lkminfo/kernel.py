@@ -91,7 +91,10 @@ class Kernel(object):
     def parse_kernel_symbols(self):
         kernel_symbols = []
         symbol_sections = [
-            ("__start___ksymtab", "__stop___ksymtab", "__start___kcrctab", "__ksymtab_")
+            ("__start___ksymtab", "__stop___ksymtab", "__start___kcrctab", "__ksymtab_"),
+            ("__start___ksymtab_gpl", "__stop___ksymtab_gpl", "__start___kcrctab_gpl", "__ksymtab_gpl_"),
+            ("__start___ksymtab_gpl_future", "__stop___ksymtab_gpl_future", "__start___kcrctab_gpl_future", "__ksymtab_gpl_future_")
+            # TODO: CONFIG_UNUSED_SYMBOLS
         ]
         for (start_sym, stop_sym, crc_sym, prefix) in symbol_sections:
             start_addr = self.find_symbol(start_sym)
