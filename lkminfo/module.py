@@ -78,6 +78,14 @@ class Module(object):
                 return value
         return def_val
 
+    def set_modinfo(self, name, new_val):
+        for i in range(len(self.load_info.mod_info)):
+            item = self.load_info.mod_info[i]
+            if item[0] == name:
+                self.load_info.mod_info[i] = (item[0], new_val)
+                return True
+        return False
+
 
 def parse_versions(data: memoryview) -> dict:
     versions = {}
@@ -110,11 +118,21 @@ def parse_modinfo(data: memoryview) -> list:
     return modinfo
 
 
+def serialize_modinfo(modinfo: []) -> list:
+    buf = bytearray()
+    for key, value in modinfo:
+        buf += key.encode('utf-8')
+        buf += b'='
+        buf += value.encode('utf-8')
+        buf += b''
+    return list(buf)
+
+
 def parse_this_module(data: memoryview):
     return data.tobytes()
 
 
-def parse_load_info(elf):
+def parse_load_info(elf: lief.ELF.Binary):
     load_info = LoadInfo()
 
     section = elf.get_section("__versions")  # type: lief.Section
@@ -149,7 +167,7 @@ def parse_sig(ko_file: str):
         size = len(data)
         off = size - len(MODULE_SIG_STRING)
         mark = data[off:].tobytes()
-        print("sig mark: ", mark)
+        #print("sig mark: ", mark)
         if mark == MODULE_SIG_STRING:
             pass
             off = size - len(MODULE_SIG_STRING) - ctypes.sizeof(ModuleSignature)

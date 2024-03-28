@@ -1,9 +1,13 @@
-from dataclasses import dataclass, field
-import ctypes
 import re
 import struct
-from .header import KernelSymbol
+import hashlib
+import traceback
 from .module import Module
+
+
+def md5file(filename):
+    with open(filename, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()
 
 
 class BinaryReader(object):
@@ -20,38 +24,64 @@ class BinaryReader(object):
         off = offset - self._bias
         return self.data[off:off+size].tobytes()
 
-    def read_uint64(self, offset: int):
+    def read_uint64(self, offset: int, def_val: int = 0):
         data = self.read_bytes(offset, 8)
-        return struct.unpack("<Q", data)[0]
+        try:
+            return struct.unpack("<Q", data)[0]
+        except:
+            traceback.print_exc()
+            return def_val
 
-    def read_c_string(self, offset: int):
+    def read_uint32(self, offset: int, def_val: int = 0):
+        data = self.read_bytes(offset, 4)
+        try:
+            return struct.unpack("<I", data)[0]
+        except:
+            traceback.print_exc()
+            return def_val
+
+    def read_c_string(self, offset: int, def_val: str = ''):
         off = offset - self._bias
         buf = bytearray()
         for b in self.data[off:off+4096]:
             if b == 0:
                 break
             buf.append(b)
-        return buf.decode('utf8')
+        try:
+            return buf.decode('utf8')
+        except:
+            traceback.print_exc()
+            return def_val
 
 
 class Kernel(object):
 
-    def __init__(self, kernel_file, kallsyms_file):
+    def __init__(self, kernel_file, kallsyms_file, config):
         self.kernel_file = kernel_file
         self.kallsyms_file = kallsyms_file
         self.kallsyms = {}
         self.kallsyms_addr = {}  # cache
         self.symbols: []
         self.vermagic = ""   # type: str
+        self.config = self.default_config(config)
+
+    def default_config(self, config):
+        def_config = {
+            "crc_item_size": 8,
+            **config
+        }
+        return def_config
 
     def dump(self):
         print("Kernel Info:")
-        print("File name: %s (size: %d)" % (self.kernel_file, self.reader.size()))
+        print("File name: %s (size: %d, md5: %s)" % (self.kernel_file, self.reader.size(), md5file(self.kernel_file)))
         print("Symbol name: %s" % self.kallsyms_file)
+        print("Vermagic: %s" % self.vermagic)
+        print("Module layout: %s" % self.find_symbol_crc("module_layout"))
         #print("Symbols in kallsyms:")
         #for sym_name, sym_addr in self.kallsyms.items():
         #    print("\t0x%x: %s" % (sym_addr, sym_name))
-        print("Symbols in kernel:")
+        print("Symbols in kernel(%d):" % len(self.symbols))
         for kernel_symbol in self.symbols:
             print("\t%s crc: %d" % (kernel_symbol['name'], kernel_symbol['crc']))
         print("")
@@ -104,18 +134,25 @@ class Kernel(object):
             crc_addr = self.find_symbol(crc_sym)
             assert crc_sym
 
-            item_size = ctypes.sizeof(KernelSymbol)
+            item_size = 8  # ctypes.sizeof(KernelSymbol)
             offset = start_addr + item_size
-            crc_offset = 8  # sizeof(uint64_t)
+            crc_offset = self.config['crc_item_size']
             while offset < stop_addr:
-                symbol_name = self.find_symbol_by_addr(offset)[len(prefix):]
-                crc = self.reader.read_uint64(crc_addr + crc_offset)
+                symbol_name = self.find_symbol_by_addr(offset)  # type: str
+                if not symbol_name or not symbol_name.startswith(prefix):
+                    offset += item_size
+                    continue
+                symbol_name = symbol_name[len(prefix):]
+                if self.config['crc_item_size'] == 4:
+                    crc = self.reader.read_uint32(crc_addr + crc_offset)
+                else:  # if self.config['crc_item_size'] == 8:
+                    crc = self.reader.read_uint64(crc_addr + crc_offset)
                 #data = self.reader.read_bytes(offset, item_size)
                 #kernel_symbol = ctypes.cast(data, ctypes.POINTER(KernelSymbol)).contents
                 #print("symbol_name", symbol_name, "crc", crc)
                 kernel_symbols.append({"name": symbol_name, "crc": crc})
                 offset += item_size
-                crc_offset += 8  # sizeof(uint64_t)
+                crc_offset += self.config['crc_item_size']
         return kernel_symbols
 
     def find_symbol(self, symbol_name):
@@ -129,7 +166,7 @@ class Kernel(object):
         if symbol_addr in self.kallsyms_addr:
             return self.kallsyms_addr[symbol_addr]
         else:
-            print("Error: can not find symbols(`0x%x`) in %s" % (symbol_addr, self.kallsyms_file))
+            #print("Error: can not find symbols(addr=`0x%x`) in %s" % (symbol_addr, self.kallsyms_file))
             return None
 
     def find_symbol_crc(self, symbol_name):
@@ -143,20 +180,19 @@ class Kernel(object):
         return self.reader.read_c_string(offset)
 
     def verify(self, module: Module):
-        print("Verify module by kernel:")
+        error_cnt = 0
         module_layout_expect = self.find_symbol_crc("module_layout")
         module_layout_actual = module.find_symbol_crc("module_layout")
         if module_layout_actual != module_layout_expect:
-            print("[Error]: module_layout mismatch, expect value in kernel: %d, actual value in module: %d" % (module_layout_expect, module_layout_actual))
-            return False
+            print("[Error]: module_layout mismatch, expect value in kernel: `%d`, actual value in module: `%d`" % (module_layout_expect, module_layout_actual))
+            error_cnt += 1
 
         vermagic_expect = self.vermagic
         vermagic_actual = module.get_modinfo("vermagic", None)
         if vermagic_actual != vermagic_expect:
-            print("[Error]: vermagic mismatch, expect value in kernel: %s, actual value in module: %s" % (vermagic_expect, vermagic_actual))
-            return False
+            print("[Error]: vermagic mismatch, expect value in kernel: `%s`, actual value in module: `%s`" % (vermagic_expect, vermagic_actual))
+            error_cnt += 1
 
-        mismatch_cnt = 0
         for sym_name in module.imported_symbols:
             if not sym_name:
                 continue
@@ -166,9 +202,6 @@ class Kernel(object):
                 continue
             crc_actual = module.find_symbol_crc(sym_name)
             if crc_actual != crc_expect:
-                print("[Error]: crc of symbol `%s` mismatch, expect value in kernel: %d, actual value in module: %d" % (sym_name, crc_expect, crc_actual))
-                mismatch_cnt += 0
-        if mismatch_cnt > 0:
-            return False
-
-        return True
+                print("[Error]: crc of symbol `%s` mismatch, expect value in kernel: `%d`, actual value in module: `%d`" % (sym_name, crc_expect, crc_actual))
+                error_cnt += 1
+        return error_cnt
