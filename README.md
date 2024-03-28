@@ -14,7 +14,7 @@ $ (.env) pip install -r requirements.txt
 
 Verify KO file:
 ```
-$python -m lkminfo verify -k kernel -s kallsyms -m qca_cld3_wlan.ko 
+$ python -m lkminfo verify -k kernel -s kallsyms -m qca_cld3_wlan.ko 
 Kernel Info:
 File name: kernel (size: 45588488)
 Symbol name: kallsyms
@@ -78,10 +78,14 @@ Process finished with exit code 0
 
 Patch KO file:
 ```
-$ python -m lkminfo patch -k /Volumes/T7S/tmp/xiaomi11/kernel_origin/kernel -s /Volumes/T7S/tmp/xiaomi11/kernel/kallsyms -m /Volumes/T7S/tmp/xiaomi11/ko/helloko.ko -o /Volumes/T7S/tmp/xiaomi11/ko/helloko_patched.ko 
+$ python -m lkminfo patch -k kernel -s kallsyms -m helloko.ko -o helloko_patched.ko 
 Before patch verify:
-[Error]: module_layout mismatch, expect value in kernel: `1318537844`, actual value in module: `4056467412`
-[Error]: vermagic mismatch, expect value in kernel: `5.4.210-qgki-g092ff07a848d SMP preempt mod_unload modversions aarch64`, actual value in module: `5.4.61-qgki-g7db0abb67-dirty SMP preempt mod_unload modversions aarch64`
+[Error]: module_layout mismatch
+    expect value in kernel: `1318537844`
+    actual value in module: `4056467412`
+[Error]: vermagic mismatch
+    expect value in kernel: `5.4.210-qgki-g092ff07a848d SMP preempt mod_unload modversions aarch64`
+    actual value in module: `5.4.61-qgki-g7db0abb67-dirty SMP preempt mod_unload modversions aarch64`
 
 After patch verify:
 Verify result: OK
