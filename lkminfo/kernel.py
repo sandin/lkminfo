@@ -180,28 +180,38 @@ class Kernel(object):
         return self.reader.read_c_string(offset)
 
     def verify(self, module: Module):
-        error_cnt = 0
+        mismatch_cnt = 0
+        matched_cnt = 0
         module_layout_expect = self.find_symbol_crc("module_layout")
         module_layout_actual = module.find_symbol_crc("module_layout")
         if module_layout_actual != module_layout_expect:
-            print("[Error]: module_layout mismatch, expect value in kernel: `%d`, actual value in module: `%d`" % (module_layout_expect, module_layout_actual))
-            error_cnt += 1
+            print("[Error]: module_layout mismatch:\n\texpect value in kernel: %d\n\tactual value in module: %d" % (module_layout_expect, module_layout_actual))
+            mismatch_cnt += 1
+        else:
+            matched_cnt += 1
 
         vermagic_expect = self.vermagic
         vermagic_actual = module.get_modinfo("vermagic", None)
         if vermagic_actual != vermagic_expect:
-            print("[Error]: vermagic mismatch, expect value in kernel: `%s`, actual value in module: `%s`" % (vermagic_expect, vermagic_actual))
-            error_cnt += 1
+            print("[Error]: vermagic mismatch:\n\texpect value in kernel: `%s`\n\tactual value in module: `%s`" % (vermagic_expect, vermagic_actual))
+            mismatch_cnt += 1
+        else:
+            matched_cnt += 1
 
         for sym_name in module.imported_symbols:
             if not sym_name:
                 continue
             crc_expect = self.find_symbol_crc(sym_name)
             if crc_expect == 0:
-                print("[Warning]: crc of symbol `%s` do not exists in kernel" % (sym_name,))
-                continue
+                #print("[Warning]: crc of symbol `%s` do not exists in kernel" % (sym_name,))
+                sym = self.find_symbol(sym_name)
+                if sym is None:
+                    print("[Warning]: symbol `%s` do not exists in kernel" % (sym_name,))
+                    continue
             crc_actual = module.find_symbol_crc(sym_name)
             if crc_actual != crc_expect:
-                print("[Error]: crc of symbol `%s` mismatch, expect value in kernel: `%d`, actual value in module: `%d`" % (sym_name, crc_expect, crc_actual))
-                error_cnt += 1
-        return error_cnt
+                print("[Error]: crc of symbol `%s` mismatch:\n\texpect value in kernel: %d\n\tactual value in module: %d" % (sym_name, crc_expect, crc_actual))
+                mismatch_cnt += 1
+            else:
+                matched_cnt += 1
+        return mismatch_cnt, matched_cnt

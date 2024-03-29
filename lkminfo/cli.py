@@ -15,11 +15,11 @@ def cmd_verify(args):
     if args.module:
         module = load_module(args.module)
         module.dump()
-        error_cnt = kernel.verify(module)
+        error_cnt, match_cnt = kernel.verify(module)
         if error_cnt == 0:
             print("Verify result: OK")
         else:
-            print("Verify result: Failed, error count: %d" % error_cnt)
+            print("Verify result: Failed, match: %d, mismatch: %d" % (match_cnt, error_cnt))
 
 
 def cmd_patch(args):
@@ -31,7 +31,7 @@ def cmd_patch(args):
 
     module = load_module(args.module)
     print("Before patch verify:")
-    error_cnt = kernel.verify(module)
+    error_cnt, match_cnt = kernel.verify(module)
     if error_cnt == 0:
         print("No need to patch")
         exit(-1)
@@ -41,11 +41,11 @@ def cmd_patch(args):
     if ret:
         print("Patch done, output: %s" % args.output)
         print("After patch verify:")
-        error_cnt = kernel.verify(module)
+        error_cnt, match_cnt = kernel.verify(module)
         if error_cnt == 0:
             print("Verify result: OK")
         else:
-            print("Verify result: Failed, error count: %d" % error_cnt)
+            print("Verify result: Failed, match: %d, mismatch: %d" % (match_cnt, error_cnt))
     else:
         print("Error: %s" % err)
 
