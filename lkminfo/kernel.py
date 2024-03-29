@@ -207,7 +207,7 @@ class Kernel(object):
                 sym = self.find_symbol(sym_name)
                 if sym is None:
                     print("[Warning]: symbol `%s` do not exists in kernel" % (sym_name,))
-                    continue
+                continue
             crc_actual = module.find_symbol_crc(sym_name)
             if crc_actual != crc_expect:
                 print("[Error]: crc of symbol `%s` mismatch:\n\texpect value in kernel: %d\n\tactual value in module: %d" % (sym_name, crc_expect, crc_actual))
