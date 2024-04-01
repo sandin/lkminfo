@@ -122,8 +122,8 @@ class Kernel(object):
         kernel_symbols = []
         symbol_sections = [
             ("__start___ksymtab", "__stop___ksymtab", "__start___kcrctab", "__ksymtab_"),
-            ("__start___ksymtab_gpl", "__stop___ksymtab_gpl", "__start___kcrctab_gpl", "__ksymtab_gpl_"),
-            ("__start___ksymtab_gpl_future", "__stop___ksymtab_gpl_future", "__start___kcrctab_gpl_future", "__ksymtab_gpl_future_")
+            ("__start___ksymtab_gpl", "__stop___ksymtab_gpl", "__start___kcrctab_gpl", "__ksymtab_"),
+            ("__start___ksymtab_gpl_future", "__stop___ksymtab_gpl_future", "__start___kcrctab_gpl_future", "__ksymtab_")
             # TODO: CONFIG_UNUSED_SYMBOLS
         ]
         for (start_sym, stop_sym, crc_sym, prefix) in symbol_sections:
@@ -169,11 +169,11 @@ class Kernel(object):
             #print("Error: can not find symbols(addr=`0x%x`) in %s" % (symbol_addr, self.kallsyms_file))
             return None
 
-    def find_symbol_crc(self, symbol_name):
+    def find_symbol_crc(self, symbol_name, def_val=0):
         for kernel_symbol in self.symbols:
             if kernel_symbol['name'] == symbol_name:
                 return kernel_symbol['crc']
-        return 0
+        return def_val
 
     def parse_vermagic(self):
         offset = self.find_symbol("vermagic")

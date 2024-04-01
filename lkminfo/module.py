@@ -8,7 +8,7 @@ from .header import ModVersionInfo, ModuleSignature
 
 @dataclass
 class LoadInfo:
-    versions: {} = field(default_factory=dict)
+    versions: {} = field(default_factory=list)
     mod_info: [] = field(default_factory=list)
     this_module: bytes = None
 
@@ -56,7 +56,7 @@ class Module(object):
         for key, value in self.load_info.mod_info:
             print("\t%s = %s" % (key, value))
         print("Versions:")
-        for sym_name, crc in self.load_info.versions.items():
+        for sym_name, crc in self.load_info.versions:
             is_imported_func = sym_name in self.imported_symbols
             is_exported_func = sym_name in self.exported_symbols
             sym_type = "NORMAL"
@@ -67,10 +67,11 @@ class Module(object):
             print("\t[%s] %s crc: %d" % (sym_type, sym_name, crc))
         print("")
 
-    def find_symbol_crc(self, symbol_name):
-        if symbol_name in self.load_info.versions:
-            return self.load_info.versions[symbol_name]
-        return 0
+    def find_symbol_crc(self, symbol_name, def_val=0):
+        for name, value in self.load_info.versions:
+            if name == symbol_name:
+                return value
+        return def_val
 
     def get_modinfo(self, name, def_val):
         for key, value in self.load_info.mod_info:
@@ -87,8 +88,8 @@ class Module(object):
         return False
 
 
-def parse_versions(data: memoryview) -> dict:
-    versions = {}
+def parse_versions(data: memoryview) -> list:
+    versions = []
 
     i = 0
     l = len(data)
@@ -99,9 +100,17 @@ def parse_versions(data: memoryview) -> dict:
         info = ctypes.cast(data[i:i + item_size].tobytes(), ctypes.POINTER(ModVersionInfo)).contents
         name = info.name.decode("utf8")
         #print(name, info.crc)
-        versions[name] = info.crc
+        versions.append((name, info.crc))
         i += item_size
     return versions
+
+
+def serialize_versions(versions: []) -> list:
+    buf = bytearray()
+    for name, crc in versions:
+        p = ModVersionInfo(crc, name.encode("utf-8"))
+        buf += ctypes.string_at(ctypes.byref(p), ctypes.sizeof(p))
+    return list(buf)
 
 
 def parse_modinfo(data: memoryview) -> list:
@@ -124,7 +133,7 @@ def serialize_modinfo(modinfo: []) -> list:
         buf += key.encode('utf-8')
         buf += b'='
         buf += value.encode('utf-8')
-        buf += b''
+        buf.append(0)
     return list(buf)
 
 

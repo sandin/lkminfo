@@ -1,7 +1,7 @@
 import argparse
 from .module import load_module
 from .kernel import Kernel
-from .patch import patch_module
+from .patch import patch_module, PatchConfig
 
 
 def cmd_verify(args):
@@ -37,10 +37,14 @@ def cmd_patch(args):
         exit(-1)
     print("")
 
-    ret, err = patch_module(kernel, module, args.output)
+    patch_config = PatchConfig()
+    if args.patch_crc:
+        patch_config.patch_versions = True
+    ret, err = patch_module(kernel, module, patch_config, args.output)
     if ret:
         print("Patch done, output: %s" % args.output)
         print("After patch verify:")
+        module = load_module(args.output)
         error_cnt, match_cnt = kernel.verify(module)
         if error_cnt == 0:
             print("Verify result: OK")
@@ -65,6 +69,8 @@ def main():
     parser_patch.add_argument("-s", "--kallsyms", help="kernel symbol file", required=True)
     parser_patch.add_argument("-m", "--module", help="kernel module file(*.ko)", required=True)
     parser_patch.add_argument("-o", "--output", help="output file(*.ko)", required=True)
+    parser_patch.add_argument("-c", "--patch_crc", action="store_true", help="patch all crc of symbols", required=False)
+
     parser_patch.set_defaults(func=cmd_patch)
 
     args = parser.parse_args()
