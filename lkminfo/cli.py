@@ -1,7 +1,23 @@
 import argparse
+
 from .module import load_module
 from .kernel import Kernel
 from .patch import patch_module, PatchConfig
+from .kallsyms import KernelOffsetAndSize
+
+
+def cmd_kallsyms(args):
+    kernel = Kernel(args.kernel, None, config={"crc_item_size": 4})
+    ok = kernel.load()
+    if not ok:
+        print("Error: can not load kernel, file: %s with %s" % (args.kernel, args.kallsyms))
+        exit(-1)
+
+    head = 0xffffff959b480000
+    offsets = KernelOffsetAndSize(0xFFFFFF959D65A8FC-head, 8, 0xFFFFFF959D354600-head, 0xFFFFFF959D185400-head) # TODO
+    symbols = kernel.proc_kallsyms(offsets)
+    print("symbols", symbols)
+    # TODO: write symbols to the output file
 
 
 def cmd_verify(args):
@@ -70,8 +86,13 @@ def main():
     parser_patch.add_argument("-m", "--module", help="kernel module file(*.ko)", required=True)
     parser_patch.add_argument("-o", "--output", help="output file(*.ko)", required=True)
     parser_patch.add_argument("-c", "--patch_crc", action="store_true", help="patch all crc of symbols", required=False)
-
     parser_patch.set_defaults(func=cmd_patch)
+
+    kallsyms_verify = subparsers.add_parser("kallsyms")
+    kallsyms_verify.add_argument("-k", "--kernel", help="kernel image file", required=True)
+    kallsyms_verify.add_argument("-o", "--output", help="output file(kallsyms)", required=True)
+    # TODO: offsets
+    kallsyms_verify.set_defaults(func=cmd_kallsyms)
 
     args = parser.parse_args()
     args.func(args)

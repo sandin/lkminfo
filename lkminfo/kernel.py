@@ -3,6 +3,7 @@ import struct
 import hashlib
 import traceback
 from .module import Module
+from .kallsyms import KernelOffsetAndSize, parse_kallsyms
 
 
 def md5file(filename):
@@ -12,13 +13,19 @@ def md5file(filename):
 
 class BinaryReader(object):
 
-    def __init__(self, filename, bias):
+    def __init__(self, filename, bias=0):
         self._bias = bias
         with open(filename, "rb") as f:
             self.data = memoryview(f.read())
 
+    def set_bias(self, bias: int):
+        self._bias = bias
+
     def size(self):
         return len(self.data)
+
+    def off(self, offset: int):
+        return offset - self._bias
 
     def read_bytes(self, offset: int, size: int):
         off = offset - self._bias
@@ -39,6 +46,9 @@ class BinaryReader(object):
         except:
             traceback.print_exc()
             return def_val
+
+    def read_byte(self, offset: int):
+        return int(self.read_bytes(offset, 1)[0])
 
     def read_c_string(self, offset: int, def_val: str = ''):
         off = offset - self._bias
@@ -87,17 +97,24 @@ class Kernel(object):
         print("")
 
     def load(self):
-        self.kallsyms = Kernel.parse_kallsyms(self.kallsyms_file)
-        for symbol_name, symbol_addr in self.kallsyms.items():
-            if symbol_addr not in self.kallsyms_addr:
-                self.kallsyms_addr[symbol_addr] = symbol_name
-        self.reader = BinaryReader(self.kernel_file, self.find_symbol("_head"))
-        self.symbols = self.parse_kernel_symbols()
-        self.vermagic = self.parse_vermagic()
-        if len(self.symbols) == 0:
-            print("Error: can not parse kernel symbols")
-            return False
+        self.reader = BinaryReader(self.kernel_file, 0)
+        if self.kallsyms_file:
+            self.kallsyms = Kernel.parse_kallsyms(self.kallsyms_file)
+            for symbol_name, symbol_addr in self.kallsyms.items():
+                if symbol_addr not in self.kallsyms_addr:
+                    self.kallsyms_addr[symbol_addr] = symbol_name
+
+            self.reader.set_bias(self.find_symbol("_head"))
+            self.symbols = self.parse_kernel_symbols()
+            self.vermagic = self.parse_vermagic()
+            if len(self.symbols) == 0:
+                print("Error: can not parse kernel symbols")
+                return False
         return True
+
+    def proc_kallsyms(self, offsets: KernelOffsetAndSize):
+        self.kernel_symbols = parse_kallsyms(self, offsets)
+        return self.kernel_symbols
 
     @staticmethod
     def parse_kallsyms(kallsyms_file):

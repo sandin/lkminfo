@@ -89,5 +89,17 @@ Before patch verify:
 
 After patch verify:
 Verify result: OK
-Patch done, output: /Volumes/T7S/tmp/xiaomi11/ko/helloko_patched.ko
+Patch done, output: helloko_patched.ko
+```
+
+Extracting kallsyms from kernel binary file:
+```
+$ python -m lkminfo kallsyms -k kernel -o kallsyms.txt
+ffffff959b480000 t _head
+ffffff959b480000 T _text
+// ...
+ffffff959b480de8 T do_debug_exception
+ffffff959b480f00 t gic_handle_irq
+ffffff959b480fb8 t gic_handle_irq
+Done, output: kallsyms.txt
 ```
