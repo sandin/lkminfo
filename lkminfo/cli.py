@@ -3,7 +3,6 @@ import argparse
 from .module import load_module
 from .kernel import Kernel
 from .patch import patch_module, PatchConfig
-from .kallsyms import KernelOffsetAndSize
 
 
 def cmd_kallsyms(args):
@@ -13,11 +12,32 @@ def cmd_kallsyms(args):
         print("Error: can not load kernel, file: %s with %s" % (args.kernel, args.kallsyms))
         exit(-1)
 
-    head = 0xffffff959b480000
-    offsets = KernelOffsetAndSize(0xFFFFFF959D65A8FC-head, 8, 0xFFFFFF959D354600-head, 0xFFFFFF959D185400-head) # TODO
+    offsets = kernel.guess_offsets()
+    if args.kallsyms_addresses_off:
+        offsets.kallsyms_addresses_off = args.kallsyms_addresses_off
+    if args.kallsyms_addresse_size:
+        offsets.kallsyms_addresse_size = args.kallsyms_addresse_size
+    if args.kallsyms_names_off:
+        offsets.kallsyms_names_off = args.kallsyms_names_off
+    if args.kallsyms_token_table_off:
+        offsets.kallsyms_token_table_off = args.kallsyms_token_table_off
+
+    if offsets.kallsyms_token_table_off == 0 or offsets.kallsyms_addresses_off == 0 or offsets.kallsyms_names_off == 0:
+        print("Error: offsets can not be null")
+        exit(-1)
+
+    head = int(args.head, base=16)
     symbols = kernel.proc_kallsyms(offsets)
-    print("symbols", symbols)
-    # TODO: write symbols to the output file
+    with open(args.output, "w") as f:
+        for index, symbol_addr in enumerate(symbols.kallsyms_addresses):
+            if index >= len(symbols.kallsyms_names):
+                break  # skip all module symbols
+            symbol_name = symbols.kallsyms_names[index]
+            symbol_type = symbol_name[0:1]
+            symbol_name = symbol_name[1:]
+            line = "%x %s %s" % (head + symbol_addr, symbol_type, symbol_name)
+            f.write(line + "\n")
+    print("Found %d kernel symbols and write them to the file: %s" % (symbols.kallsyms_num_syms, args.output))
 
 
 def cmd_verify(args):
@@ -91,7 +111,11 @@ def main():
     kallsyms_verify = subparsers.add_parser("kallsyms")
     kallsyms_verify.add_argument("-k", "--kernel", help="kernel image file", required=True)
     kallsyms_verify.add_argument("-o", "--output", help="output file(kallsyms)", required=True)
-    # TODO: offsets
+    kallsyms_verify.add_argument("--head", help="head offset", type=str, default="0x0", required=False)
+    kallsyms_verify.add_argument("--kallsyms_addresses_off", help="kallsyms_addresses offset", type=int, required=False)
+    kallsyms_verify.add_argument("--kallsyms_addresse_size", help="kallsyms_addresse size", type=int, required=False)
+    kallsyms_verify.add_argument("--kallsyms_names_off", help="kallsyms_names offset", type=int, required=False)
+    kallsyms_verify.add_argument("--kallsyms_token_table_off", help="kallsyms_token_table offset", type=int, required=False)
     kallsyms_verify.set_defaults(func=cmd_kallsyms)
 
     args = parser.parse_args()

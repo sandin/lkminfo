@@ -3,7 +3,7 @@ import struct
 import hashlib
 import traceback
 from .module import Module
-from .kallsyms import KernelOffsetAndSize, parse_kallsyms
+from .kallsyms import KernelOffsetAndSize, parse_kallsyms, guess_offsets_for_kallsyms
 
 
 def md5file(filename):
@@ -111,6 +111,9 @@ class Kernel(object):
                 print("Error: can not parse kernel symbols")
                 return False
         return True
+
+    def guess_offsets(self) -> KernelOffsetAndSize:
+        return guess_offsets_for_kallsyms(self)
 
     def proc_kallsyms(self, offsets: KernelOffsetAndSize):
         self.kernel_symbols = parse_kallsyms(self, offsets)

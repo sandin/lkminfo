@@ -92,7 +92,7 @@ Verify result: OK
 Patch done, output: helloko_patched.ko
 ```
 
-Extracting kallsyms from kernel binary file:
+Extracting kallsyms from kernel binary file, so you don't need to flash the kernel into the phone to extract the symbols!:
 ```
 $ python -m lkminfo kallsyms -k kernel -o kallsyms.txt
 ffffff959b480000 t _head
@@ -101,5 +101,5 @@ ffffff959b480000 T _text
 ffffff959b480de8 T do_debug_exception
 ffffff959b480f00 t gic_handle_irq
 ffffff959b480fb8 t gic_handle_irq
-Done, output: kallsyms.txt
+Found 172338 kernel symbols and write them to the file: kallsyms.txt
 ```
