@@ -55,6 +55,9 @@ class Module(object):
         print("Modinfo:")
         for key, value in self.load_info.mod_info:
             print("\t%s = %s" % (key, value))
+        print("import:")
+        for sym_name in self.imported_symbols:
+            print("\t%s" % sym_name)
         print("Versions:")
         for sym_name, crc in self.load_info.versions:
             is_imported_func = sym_name in self.imported_symbols

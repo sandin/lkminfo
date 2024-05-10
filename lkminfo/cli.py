@@ -58,6 +58,18 @@ def cmd_verify(args):
             print("Verify result: Failed, match: %d, mismatch: %d" % (match_cnt, error_cnt))
 
 
+def cmd_dump(args):
+    if args.kernel and args.kallsyms:
+        kernel = Kernel(args.kernel, args.kallsyms, config={"crc_item_size": 4})
+        ok = kernel.load()
+        if ok:
+            kernel.dump()
+
+    if args.module:
+        module = load_module(args.module)
+        module.dump()
+
+
 def cmd_patch(args):
     kernel = Kernel(args.kernel, args.kallsyms, config={"crc_item_size": 4})
     ok = kernel.load()
@@ -93,6 +105,12 @@ def cmd_patch(args):
 def main():
     parser = argparse.ArgumentParser(prog="lkminfo")
     subparsers = parser.add_subparsers(required=True)
+
+    parser_verify = subparsers.add_parser("dump")
+    parser_verify.add_argument("-k", "--kernel", help="kernel image file", required=False)
+    parser_verify.add_argument("-s", "--kallsyms", help="kernel symbol file", required=False)
+    parser_verify.add_argument("-m", "--module", help="kernel module file(*.ko)", required=False)
+    parser_verify.set_defaults(func=cmd_dump)
 
     parser_verify = subparsers.add_parser("verify")
     parser_verify.add_argument("-k", "--kernel", help="kernel image file", required=True)
