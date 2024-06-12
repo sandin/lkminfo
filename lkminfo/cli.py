@@ -1,4 +1,5 @@
 import argparse
+import os.path
 
 from .module import load_module
 from .kernel import Kernel
@@ -60,12 +61,21 @@ def cmd_verify(args):
 
 def cmd_dump(args):
     if args.kernel and args.kallsyms:
+        if not os.path.exists(args.modukernelle):
+            print("Error: %s file is exists!" % args.kernel)
+            exit(-1)
+        if not os.path.exists(args.kallsyms):
+            print("Error: %s file is exists!" % args.kallsyms)
+            exit(-1)
         kernel = Kernel(args.kernel, args.kallsyms, config={"crc_item_size": 4})
         ok = kernel.load()
         if ok:
             kernel.dump()
 
     if args.module:
+        if not os.path.exists(args.module):
+            print("Error: %s file is exists!" % args.module)
+            exit(-1)
         module = load_module(args.module)
         module.dump()
 
